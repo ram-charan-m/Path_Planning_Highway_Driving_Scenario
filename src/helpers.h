@@ -34,12 +34,12 @@ constexpr double pi() { return M_PI; }
 double deg2rad(double x) { return x * pi() / 180; }
 double rad2deg(double x) { return x * 180 / pi(); }
 
-// Calculate distance between two points
+// Calculate Euclidean distance between two points
 double distance(double x1, double y1, double x2, double y2) {
   return sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
 }
 
-// Calculate closest waypoint to current x, y position
+// Calculate closest waypoint to current x, y position within the map of waypoints
 int ClosestWaypoint(double x, double y, const vector<double> &maps_x, 
                     const vector<double> &maps_y) {
   double closestLen = 100000; //large number
@@ -58,7 +58,7 @@ int ClosestWaypoint(double x, double y, const vector<double> &maps_x,
   return closestWaypoint;
 }
 
-// Returns next waypoint of the closest waypoint
+// Returns next waypoint of the closest waypoint based on the heading angle
 int NextWaypoint(double x, double y, double theta, const vector<double> &maps_x, 
                  const vector<double> &maps_y) {
   int closestWaypoint = ClosestWaypoint(x,y,maps_x,maps_y);
@@ -126,7 +126,7 @@ vector<double> getFrenet(double x, double y, double theta,
   return {frenet_s,frenet_d};
 }
 
-// Transform from Frenet s,d coordinates to Cartesian x,y
+// Transform from Frenet s,d coordinates to Cartesian x,y (not a linear transformation)
 vector<double> getXY(double s, double d, const vector<double> &maps_s, 
                      const vector<double> &maps_x, 
                      const vector<double> &maps_y) {
