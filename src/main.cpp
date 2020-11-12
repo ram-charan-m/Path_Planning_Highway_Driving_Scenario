@@ -60,10 +60,12 @@ int main() {
   int lane = 1; // second lane counting from far left 
   
   // Refernce target velocity
-  double v_ref = 49.8; // mph
+  double v_ref = 0; // mph
+  int LCR_count = 0; // To penalize right lane changes
+  int LCL_count = 0;
   
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
-               &map_waypoints_dx,&map_waypoints_dy, &lane, &v_ref]
+               &map_waypoints_dx,&map_waypoints_dy, &lane, &v_ref, &LCR_count, &LCL_count]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -97,14 +99,162 @@ int main() {
           double end_path_d = j[1]["end_path_d"];
 
           // Sensor Fusion Data, a list of all other cars on the same side 
-          //   of the road.
+          //   of the road. It is a vector<vector> with outer being the car and inner vector being its parameters
           auto sensor_fusion = j[1]["sensor_fusion"];
           
           int prevpath_size = previous_path_y.size(); // Last path the car was following before calculating new trajectory points in this step
-          // 
-
-          json msgJson;
           
+          //  If there exists a non empty previous path points list
+          // we initiate car_s to the last s of path points
+          if(prevpath_size > 0){
+            car_s = end_path_s;
+          }
+          
+          bool too_close = false; // collision avoidance flag
+          bool emergency = false;
+          bool LCL = false; // Lane change left 
+          bool LCR = false; // Lane change right
+          bool left_empty = false;
+          bool right_empty = false;
+          bool mid_empty = false;
+          
+          
+          //find safe v_ref
+          for (int i = 0; i < sensor_fusion.size(); ++i)
+          {
+            // if car is in the same lane as ego
+            float d = sensor_fusion[i][6];
+            if(d<(2+4*lane+2) && d >(2+4*lane-2))
+            {
+              double vx = sensor_fusion[i][3];
+              double vy = sensor_fusion[i][4];
+              double check_speed = sqrt(vx*vx + vy*vy);
+              double check_car_s = sensor_fusion[i][5];
+              
+              //If using previous path points, we need to look at future path point
+              // For this we project s values out in time
+              check_car_s += ((double)prevpath_size*0.02*check_speed); 
+              // checking if we are close to other car
+              
+              if((check_car_s > car_s) && ((check_car_s - car_s)<20)){
+                emergency = true;
+              }
+              
+              if((check_car_s > car_s) && ((check_car_s - car_s)<30)){
+                too_close = true;
+                double min = 20; // safe distance between ego and other vehicles to perform lane change     
+                // Initializing closest vehicle in each lane to ego
+                double min_left = 10000.0;
+                double min_right = 10000.0;
+                double min_mid = 10000.0;
+                
+                for (int j = 0; j < sensor_fusion.size(); ++j){// checking for empty lanes                
+                  float d_next = sensor_fusion[j][6];
+                  double s_next = sensor_fusion[j][5];
+                  double x_next = sensor_fusion[j][3];
+                  double y_next = sensor_fusion[j][4];
+                  double v_next = sqrt(x_next*x_next + y_next*y_next);
+                  s_next += ((double)prevpath_size*0.02*v_next);   
+                  double dist = fabs(car_s - s_next);
+                  
+                  // Updating closest vehicle distance to ego in each lane
+                  if((d_next<4 && d_next>0)){
+                    if(min_left > dist){
+                      min_left = dist;
+                    }
+                  }
+                  
+                  if((d_next<8 && d_next>4)){
+                    if(min_mid > dist){
+                      min_mid = dist;
+                    }
+                  }   
+                  
+                  if((d_next<12 && d_next>8)){
+                    if(min_right > dist){
+                      min_right = dist;
+                    }
+                  }                    
+                } // end of empty lane checking for loop    
+                
+                // If distance between ego and other cars is high enough, lane considered empty
+                if(min_left > min){
+                  left_empty = true;
+                }
+                
+                if(min_mid > min){
+                  mid_empty = true;
+                }
+                
+                if(min_right > min){
+                  right_empty = true;
+                }                
+                
+              }//closeness check loop end
+              
+            }// same lane as ego
+            
+          }
+          
+          if(emergency){
+            v_ref -= 2*0.224;
+          }
+          
+            if(too_close){
+              v_ref -= 0.5*0.224;
+            }
+            else if(v_ref < 49.5){
+              v_ref += 2*0.224;
+            }
+          
+            if(too_close){
+              if(lane==0){
+                if(mid_empty && (LCR_count>100)){//count and check mid is empty
+                  std::cout<<"Lane Change Right"<<std::endl;
+                  LCR = true;
+                  LCR_count = 0;
+                }
+                else{
+                  LCR_count += 1;
+                }                  
+              }
+
+              if(lane==1){
+                if(left_empty && (LCL_count>30)){
+                  LCL = true;
+                  LCL_count = 0;
+                }
+                else if(right_empty && (LCR_count>100)){// else count and check right is empty
+                  LCR = true;
+                  LCR_count = 0;
+                  std::cout<<"Lane Change Right"<<std::endl;
+                }
+                else{
+                  LCR_count += 1;
+                  LCL_count += 1;
+                }
+              }
+
+              if(lane==2){
+                if(left_empty && (LCL_count>30)){
+                  LCL = true;
+                  LCL_count = 0;
+                }
+                else{
+                  LCL_count += 1;
+                }
+              }
+            }
+
+            if(LCL){
+              lane--;
+            }
+
+            if(LCR){
+              lane++;
+            }
+          
+                  
           // Create a list of sparsely spaced xy waypoints, spaced at 40m
           // These waypoints are interpolated with a spline with more points to maintain speed          
           vector<double> ptsx;
@@ -261,7 +411,7 @@ int main() {
 //             pos_x += (dist_inc)*cos(angle+(i+1)*(pi()/100));
 //             pos_y += (dist_inc)*sin(angle+(i+1)*(pi()/100));
 //           }
-                   
+          json msgJson;         
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
 
