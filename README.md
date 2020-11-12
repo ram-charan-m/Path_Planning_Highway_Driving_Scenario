@@ -76,24 +76,23 @@ A really helpful resource for doing this project and creating smooth trajectorie
 This section describes a step by step process adopted to meet the project requirments set in the 'Goals' section.
 
 Step 1 - Maintaining lane:
-	For this we use Frenet coordinates of car. A trajectory of 50 waypoints was created by adding specific distance to Frenet s to maintain speed limit. Frenet d is lane location so can be constant. We convert back to XY coordinates and push_back.
-	Result: Runs in lane
+* For this we use Frenet coordinates of car. A trajectory of 50 waypoints was created by adding specific distance to Frenet s to maintain speed limit. Frenet d is lane location so can be constant. We convert back to XY coordinates and push_back.
+* Result: Runs in lane
 
 Step 2 - Avoid jerk violation by generating smoother trajectories using spline library:
-	Using the spline library, we generate a spline using sparsely spaced anchor points with the help of previous path points or current car state. To meet speed constraints these points are interpolated on this smooth spline at specific locations. These locations were identified by linearizing the spline and using simple trigonometric functions. Converting the anchor points to car co-ordinate system can help in simplifying the math.
-	Result: Meeting jerk, acceleration and speed constraints
+* Using the spline library, we generate a spline using sparsely spaced anchor points with the help of previous path points or current car state. To meet speed constraints these points are interpolated on this smooth spline at specific locations. These locations were identified by linearizing the spline and using simple trigonometric functions. Converting the anchor points to car co-ordinate system can help in simplifying the math.
+* Result: Meeting jerk, acceleration and speed constraints
 
 Step 3 - Avoiding collisions:
-	By using sensor fusion data, we can avoid collisions by adding simple rules. Such rules allow the ego to maintain a safe distance from other cars. Such same rules can also be set to maintain acceleration limits. By adding a practical rule to slowly accelerate to maximum speed can also avoid instantaneous high speeds.
-    Result: Single lane trajectory that can safely complete the highway strip
+* By using sensor fusion data, we can avoid collisions by adding simple rules. Such rules allow the ego to maintain a safe distance from other cars. Such same rules can also be set to maintain acceleration limits. By adding a practical rule to slowly accelerate to maximum speed can also avoid instantaneous high speeds.
+* Result: Single lane trajectory that can safely complete the highway strip
 
 Step 4 - Optimal lane shifting
-	Following the first 3 steps, the ego can successfully complete the highway section, but this is not optimal or practical. By adding lane shifting, we can provide a realistic solution. Optimizing the lane shifts is possible through simple rules through a finite state machine approach.
-    The car was set to be in three states; default keep lane, lane change left, lane change right. 
-    For shifting lanes, the car has to first determine if the said lane is empty. This can be determined by considering a safe distance from ego for allowing lane change. By comparing the Frenet s of ego to each vehicle in every lane, we can determine the safety of lane change. 
-    Additionally, there is a likelihood for the traffic in the current lane to clear up making a lane change unnecessary. This can be monitored using a counter variable for each lane. 
-    Each finite state machine is triggered when lane is empty and current lane remains slower than speed limit for a particular time.
-    Further, right lane changes have higher costs by increasing the opportunity to stay in current lane with a longer counter threshold.
+* Following the first 3 steps, the ego can successfully complete the highway section, but this is not optimal or practical. By adding lane shifting, we can provide a realistic solution. Optimizing the lane shifts is possible through simple rules through a finite state machine approach. The car was set to be in three states; default keep lane, lane change left, lane change right.
+* For shifting lanes, the car has to first determine if the said lane is empty. This can be determined by considering a safe distance from ego for allowing lane change. By comparing the Frenet s of ego to each vehicle in every lane, we can determine the safety of lane change. 
+* Additionally, there is a likelihood for the traffic in the current lane to clear up making a lane change unnecessary. This can be monitored using a counter variable for each lane. Each finite state machine is triggered when lane is empty and current lane remains slower than speed limit for a particular time.
+* Further, right lane changes have higher costs by increasing the opportunity to stay in current lane with a longer counter threshold.
+* Result: Safe and quicker completion of highway strip
     
 ---
 ## Dependencies
