@@ -10,7 +10,7 @@ sudo chmod u+x {simulator_file_name}
 ```
 
 ### Goals
-In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
+In this project, thr goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. The car's localization and sensor fusion data is provided, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 10 m/s^3.
 
 #### The map of the highway is in data/highway_map.txt
 Each waypoint in the list contains  [x,y,s,dx,dy] values. x and y are the waypoint's map coordinate position, the s value is the distance along the road to get to that waypoint in meters, the dx and dy values define the unit normal vector pointing outward of the highway loop.
@@ -65,12 +65,37 @@ the path has processed since last time.
 
 2. There will be some latency between the simulator running and the path planner returning a path, with optimized code usually its not very long maybe just 1-3 time steps. During this delay the simulator will continue using points that it was last given, because of this its a good idea to store the last points you have used so you can have a smooth transition. previous_path_x, and previous_path_y can be helpful for this transition since they show the last points given to the simulator controller with the processed points already removed. You would either return a path that extends this previous path or make sure to create a new path that has a smooth transition with this last path.
 
-## Tips
+## Spline Library
 
 A really helpful resource for doing this project and creating smooth trajectories was using http://kluge.in-chemnitz.de/opensource/spline/, the spline function is in a single hearder file is really easy to use.
 
 ---
 
+## Model Documentation:
+
+This section describes a step by step process adopted to meet the project requirments set in the 'Goals' section.
+
+Step 1 - Maintaining lane:
+	For this we use Frenet coordinates of car. A trajectory of 50 waypoints was created by adding specific distance to Frenet s to maintain speed limit. Frenet d is lane location so can be constant. We convert back to XY coordinates and push_back.
+	Result: Runs in lane
+
+Step 2 - Avoid jerk violation by generating smoother trajectories using spline library:
+	Using the spline library, we generate a spline using sparsely spaced anchor points with the help of previous path points or current car state. To meet speed constraints these points are interpolated on this smooth spline at specific locations. These locations were identified by linearizing the spline and using simple trigonometric functions. Converting the anchor points to car co-ordinate system can help in simplifying the math.
+	Result: Meeting jerk, acceleration and speed constraints
+
+Step 3 - Avoiding collisions:
+	By using sensor fusion data, we can avoid collisions by adding simple rules. Such rules allow the ego to maintain a safe distance from other cars. Such same rules can also be set to maintain acceleration limits. By adding a practical rule to slowly accelerate to maximum speed can also avoid instantaneous high speeds.
+    Result: Single lane trajectory that can safely complete the highway strip
+
+Step 4 - Optimal lane shifting
+	Following the first 3 steps, the ego can successfully complete the highway section, but this is not optimal or practical. By adding lane shifting, we can provide a realistic solution. Optimizing the lane shifts is possible through simple rules through a finite state machine approach.
+    The car was set to be in three states; default keep lane, lane change left, lane change right. 
+    For shifting lanes, the car has to first determine if the said lane is empty. This can be determined by considering a safe distance from ego for allowing lane change. By comparing the Frenet s of ego to each vehicle in every lane, we can determine the safety of lane change. 
+    Additionally, there is a likelihood for the traffic in the current lane to clear up making a lane change unnecessary. This can be monitored using a counter variable for each lane. 
+    Each finite state machine is triggered when lane is empty and current lane remains slower than speed limit for a particular time.
+    Further, right lane changes have higher costs by increasing the opportunity to stay in current lane with a longer counter threshold.
+    
+---
 ## Dependencies
 
 * cmake >= 3.5
